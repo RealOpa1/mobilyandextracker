@@ -6,16 +6,23 @@
     "default_popup": "popup.html",
     "default_icon": {
       "48": "icons/icon48.png",
-      "96": "icons/icon96.png"
+      "128": "icons/icon128.png"
     }
   },
-  "permissions": ["storage", "activeTab"],
-  "icons": {
-    "128": "icons/icon128.png"
-  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.yandex.ru/*"
+  ],
   "content_scripts": [{
     "matches": ["*://*.yandex.ru/*"],
-    "js": ["content.js"],
-    "css": ["content.css"]
-  }]
+    "js": ["content.js"]
+  }],
+  "icons": {
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }
