@@ -1,4 +1,4 @@
-.mobile-container {
+.container {
   width: 300px;
   padding: 15px;
   font-family: Arial, sans-serif;
@@ -15,7 +15,7 @@
   touch-action: manipulation;
 }
 
-.mobile-status {
+.status {
   font-size: 14px;
   margin-top: 15px;
   word-break: break-word;
