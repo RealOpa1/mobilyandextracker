@@ -1,26 +1,44 @@
 {
   "manifest_version": 3,
   "name": "YandexTracker Mobile",
-  "version": "1.0",
-  "description": "Отслеживает посещение учебных сайтов",
+  "version": "1.0.0",
+  "description": "Отслеживание времени на образовательных сайтах с согласия пользователя",
   "permissions": [
     "tabs",
-    "webRequest",
-    "webRequestBlocking",
-    "storage"
+    "storage",
+    "alarms",
+    "scripting"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "https://*/*",
+    "http://*/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "YandexTracker Mobile"
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "YandexTracker"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
   },
   "icons": {
-    "48": "icon48.png",
-    "128": "icon128.png"
-  }
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }
