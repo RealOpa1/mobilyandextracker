@@ -1,4 +1,7 @@
-const allowedDomains = [
+
+const API_BASE = 'https://ваш-сервер.com/api';
+
+const DEFAULT_SITES = [
   'stackoverflow.com',
   'github.com',
   'checkio.org',
@@ -11,66 +14,180 @@ const allowedDomains = [
   'skillbox.ru',
   'wikipedia.org',
   'stepik.org'
-];
+].map(domain => ({ domain, url_pattern: '' }));
 
-let trackingData = [];
+let educationalSites = [...DEFAULT_SITES]; 
+let activeTabs = {};
 
-chrome.webRequest.onCompleted.addListener(
-  function(details) {
-    const url = details.url;
-    const domain = new URL(url).hostname;
-
-    if (allowedDomains.includes(domain)) {
-      console.log('Посещен учебный сайт:', url);
-      const timestamp = Date.now();
-      trackingData.push({ url: url, timestamp: timestamp });
-      chrome.storage.local.set({ trackingData: trackingData });
-     
+async function initialize() {
+  const result = await chrome.storage.local.get(['apiUrl', 'token', 'educationalSites']);
+  if (result.apiUrl) API_BASE = result.apiUrl;
+  
+  if (result.educationalSites && Array.isArray(result.educationalSites)) {
+    const existingDomains = new Set(DEFAULT_SITES.map(s => s.domain));
+    const merged = [...DEFAULT_SITES];
+    for (const site of result.educationalSites) {
+      if (!existingDomains.has(site.domain)) {
+        merged.push(site);
+        existingDomains.add(site.domain);
+      }
     }
-  },
-  { urls: ['<all_urls>'] }
-);
+    educationalSites = merged;
+  } else {
+    educationalSites = [...DEFAULT_SITES];
+  }
+  if (result.token) {
+    await fetchEducationalSites(result.token);
+  }
+  
+  checkExistingTabs();
+}
 
+initialize();
 
-async function sendDataToBackend(url, timestamp) {
-  const backendUrl = 'http://localhost:3000/api/track'; // Замените на URL вашего бэкенда!
-
+async function fetchEducationalSites(token) {
   try {
-    const response = await fetch(backendUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ url: url, timestamp: timestamp })
+    const response = await fetch(`${API_BASE}/sites`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     });
-
-    if (!response.ok) {
-      console.error('Ошибка отправки данных на бэкенд:', response.status);
-    } else {
-      console.log('Данные успешно отправлены на бэкенд');
+    if (response.ok) {
+      const serverSites = await response.json();
+      const existingDomains = new Set(educationalSites.map(s => s.domain));
+      const merged = [...educationalSites];
+      for (const site of serverSites) {
+        if (!existingDomains.has(site.domain)) {
+          merged.push(site);
+          existingDomains.add(site.domain);
+        }
+      }
+      educationalSites = merged;
+      await chrome.storage.local.set({ educationalSites });
     }
   } catch (error) {
-    console.error('Ошибка отправки данных на бэкенд:', error);
+    console.error('Ошибка загрузки образовательных сайтов:', error);
   }
 }
 
-function updatePopup() {
-  chrome.storage.local.get(['trackingData'], function(result) {
-    const data = result.trackingData || [];
-    const popupContent = document.getElementById('popup-content'); 
-    if (popupContent) {
-    popupContent.innerHTML = ''; 
-    if (data.length === 0) {
-      popupContent.textContent = 'Нет данных для отображения.';
-    } else {
-      const list = document.createElement('ul');
-      data.forEach(item => {
-        const listItem = document.createElement('li');
-        listItem.textContent = `${new Date(item.timestamp).toLocaleString()} - ${item.url}`;
-        list.appendChild(listItem);
+async function checkExistingTabs() {
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.url && isEducational(tab.url)) {
+      activeTabs[tab.id] = {
+        url: tab.url,
+        domain: new URL(tab.url).hostname,
+        startTime: Date.now()
+      };
+      sendVisit({
+        url: tab.url,
+        domain: new URL(tab.url).hostname,
+        duration: 0,
+        timestamp: new Date().toISOString(),
+        action: 'page_view'
       });
-      popupContent.appendChild(list);
     }
   }
-  });
+}
+
+function isEducational(url) {
+  if (!url || !educationalSites.length) return false;
+  try {
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname.replace('www.', '');
+    return educationalSites.some(site => 
+      domain.includes(site.domain) || (site.url_pattern && url.includes(site.url_pattern))
+    );
+  } catch {
+    return false;
+  }
+}
+async function sendVisit(data) {
+  const { token, trackingEnabled } = await chrome.storage.local.get(['token', 'trackingEnabled']);
+  if (!token || !trackingEnabled) return;
+
+  try {
+    await fetch(`${API_BASE}/visits`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+  } catch (error) {
+    console.error('Ошибка отправки данных:', error);
+    const { offlineQueue = [] } = await chrome.storage.local.get('offlineQueue');
+    offlineQueue.push(data);
+    chrome.storage.local.set({ offlineQueue });
+  }
+}
+
+async function finishTabSession(tabId) {
+  const session = activeTabs[tabId];
+  if (!session) return;
+
+  const duration = Math.floor((Date.now() - session.startTime) / 1000);
+  if (duration > 5) { 
+    await sendVisit({
+      url: session.url,
+      domain: session.domain,
+      duration,
+      timestamp: new Date(session.startTime).toISOString(),
+      action: 'page_exit'
+    });
+  }
+  delete activeTabs[tabId];
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url) {
+    finishTabSession(tabId);
+
+    if (isEducational(tab.url)) {
+      activeTabs[tabId] = {
+        url: tab.url,
+        domain: new URL(tab.url).hostname,
+        startTime: Date.now()
+      };
+      sendVisit({
+        url: tab.url,
+        domain: new URL(tab.url).hostname,
+        duration: 0,
+        timestamp: new Date().toISOString(),
+        action: 'page_view'
+      });
+    }
+  }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  finishTabSession(tabId);
+});
+
+chrome.alarms.create('offlineSync', { periodInMinutes: 1 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'offlineSync') {
+    processOfflineQueue();
+  }
+});
+
+async function processOfflineQueue() {
+  const { offlineQueue = [], token } = await chrome.storage.local.get(['offlineQueue', 'token']);
+  if (!offlineQueue.length || !token) return;
+
+  const newQueue = [];
+  for (const item of offlineQueue) {
+    try {
+      await fetch(`${API_BASE}/visits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(item)
+      });
+    } catch {
+      newQueue.push(item); 
+    }
+  }
+  chrome.storage.local.set({ offlineQueue: newQueue });
 }
