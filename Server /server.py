@@ -5,6 +5,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 from werkzeug.security import generate_password_hash, check_password_hash
+import requests
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)  
@@ -250,9 +253,75 @@ def old_log():
     """Старый эндпоинт, оставлен для обратной совместимости."""
     pass
 
-@app.before_first_request
-def create_tables():
-    SQLModel.metadata.create_all(engine)
 
-if __name__ == '__main__':
+SO_API_URL = "https://api.stackexchange.com/2.3/search/advanced"
+SO_API_KEY = None
+SO_SITE = "stackoverflow"
+
+def extract_keywords(text, n=5):
+    vectorizer = TfidfVectorizer(stop_words='english', max_features=10)
+    try:
+        tfidf = vectorizer.fit_transform([text])
+        feature_names = vectorizer.get_feature_names_out()
+        scores = tfidf.toarray()[0]
+        indices = np.argsort(scores)[::-1][:n]
+        keywords = [feature_names[i] for i in indices if scores[i] > 0]
+        return keywords
+    except:
+        words = text.lower().split()
+        stop_words = {'the', 'a', 'an', 'and', 'or', 'to', 'of', 'for', 'in', 'on', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'but', 'so', 'if', 'then', 'else', 'when', 'where', 'which', 'while', 'using', 'how', 'why', 'what', 'which', 'who', 'whom'}
+        words = [w for w in words if w not in stop_words and len(w) > 3]
+        from collections import Counter
+        return [w for w, c in Counter(words).most_common(n)]
+
+@app.route('/api/recommend', methods=['POST'])
+@token_required
+def recommend_from_stackoverflow(current_user):
+    data = request.get_json()
+    if not data or not data.get('text'):
+        return jsonify({'error': 'Text is required'}), 400
+
+    page_text = data['text']
+    
+    keywords = extract_keywords(page_text, n=5)
+    if not keywords:
+        return jsonify({'recommendations': []}), 200
+    
+    query = ' '.join(keywords)
+    
+    params = {
+        'q': query,
+        'site': SO_SITE,
+        'order': 'desc',
+        'sort': 'relevance',
+        'pagesize': 10,
+    }
+    if SO_API_KEY:
+        params['key'] = SO_API_KEY
+    
+    try:
+        response = requests.get(SO_API_URL, params=params, timeout=10)
+        response.raise_for_status()
+        data_so = response.json()
+        
+        items = data_so.get('items', [])
+        top_items = items[:3]
+        
+        recommendations = []
+        for item in top_items:
+            recommendations.append({
+                'title': item['title'],
+                'link': item['link'],
+                'score': item.get('score', 0),
+                'answer_count': item.get('answer_count', 0)
+            })
+        
+        return jsonify({'recommendations': recommendations}), 200
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Ошибка при запросе к StackOverflow: {e}")
+        return jsonify({'error': 'Failed to fetch from StackOverflow'}), 502
+
+if __name__ == '__main__': 
+    SQLModel.metadata.create_all(engine)
     app.run(host='0.0.0.0', port=5000, debug=True)
