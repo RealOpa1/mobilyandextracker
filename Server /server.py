@@ -46,11 +46,9 @@ class Visit(SQLModel, table=True):
 
 
 def generate_token():
-    """Генерирует уникальный токен."""
     return str(uuid.uuid4())
 
 def token_required(f):
-    """Декоратор для проверки токена в заголовке Authorization."""
     from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -67,7 +65,6 @@ def token_required(f):
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    """Регистрация нового пользователя."""
     data = request.get_json()
     if not data or not data.get('username') or not data.get('password'):
         return jsonify({'error': 'Username and password required'}), 400
@@ -100,7 +97,6 @@ def register():
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    """Вход пользователя, выдача токена."""
     data = request.get_json()
     if not data or not data.get('username') or not data.get('password'):
         return jsonify({'error': 'Username and password required'}), 400
@@ -129,7 +125,6 @@ def login():
 @app.route('/api/sites', methods=['GET'])
 @token_required
 def get_sites(user):
-    """Возвращает список образовательных сайтов пользователя."""
     with Session(engine) as session:
         sites = session.exec(select(Site).where(Site.user_id == user.user_id)).all()
         return jsonify([
@@ -145,7 +140,6 @@ def get_sites(user):
 @app.route('/api/sites', methods=['POST'])
 @token_required
 def add_site(user):
-    """Добавляет новый образовательный сайт для пользователя."""
     data = request.get_json()
     if not data or not data.get('name') or not data.get('domain'):
         return jsonify({'error': 'name and domain required'}), 400
@@ -166,7 +160,6 @@ def add_site(user):
 @app.route('/api/sites/<int:site_id>', methods=['DELETE'])
 @token_required
 def delete_site(user, site_id):
-    """Удаляет сайт по ID (только если он принадлежит пользователю)."""
     with Session(engine) as session:
         site = session.get(Site, site_id)
         if not site or site.user_id != user.user_id:
@@ -206,7 +199,6 @@ def add_visit(user):
 @app.route('/api/visits/batch', methods=['POST'])
 @token_required
 def batch_visits(user):
-    """Пакетное сохранение нескольких посещений (для офлайн-очереди)."""
     data = request.get_json()
     if not isinstance(data, list):
         return jsonify({'error': 'Expected a list'}), 400
@@ -227,7 +219,6 @@ def batch_visits(user):
                 session.add(visit)
                 saved += 1
             except:
-                # Пропускаем некорректные записи
                 continue
         session.commit()
 
@@ -236,7 +227,6 @@ def batch_visits(user):
 @app.route('/api/user/tracking', methods=['PUT'])
 @token_required
 def set_tracking(user):
-    """Включает/выключает отслеживание для пользователя."""
     data = request.get_json()
     if 'enabled' not in data:
         return jsonify({'error': 'enabled field required'}), 400
@@ -250,9 +240,7 @@ def set_tracking(user):
 
 @app.route('/log', methods=['POST'])
 def old_log():
-    """Старый эндпоинт, оставлен для обратной совместимости."""
     pass
-
 
 SO_API_URL = "https://api.stackexchange.com/2.3/search/advanced"
 SO_API_KEY = None
