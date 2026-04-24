@@ -29,11 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.openOptionsPage();
   });
 
-  loginBtn.addEventListener('click', () => {
+   loginBtn.addEventListener('click', () => { 
     chrome.storage.local.get(['apiUrl'], (result) => {
-      const loginUrl = (result.apiUrl || 'https://ваш-сервер.com') + '/mobile/login';
-      chrome.tabs.create({ url: loginUrl });
-    });
+      const baseApiUrl = result.apiUrl || 'http://83.242.96.175:5002';
+      const loginUrl = `${baseApiUrl}/api/login`;
+      chrome.tabs.create({ url: loginUrl }); 
+    }); 
   });
 
   function updateUI(data) {
