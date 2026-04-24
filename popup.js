@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginBtn = document.getElementById('loginBtn');
   const currentSiteDiv = document.getElementById('currentSite');
 
-  chrome.storage.local.get(['token', 'trackingEnabled', 'userId'], (result) => {
+  chrome.storage.local.get(['token', 'trackingEnabled', 'userId', 'apiUrl'], (result) => {
     updateUI(result);
   });
 
@@ -29,12 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.openOptionsPage();
   });
 
-   loginBtn.addEventListener('click', () => { 
+  loginBtn.addEventListener('click', () => {
     chrome.storage.local.get(['apiUrl'], (result) => {
       const baseApiUrl = result.apiUrl || 'http://83.242.96.175:5002';
       const loginUrl = `${baseApiUrl}/api/login`;
-      chrome.tabs.create({ url: loginUrl }); 
-    }); 
+      chrome.tabs.create({ url: loginUrl });
+    });
   });
 
   function updateUI(data) {
