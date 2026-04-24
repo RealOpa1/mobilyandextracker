@@ -1,5 +1,5 @@
 
-const API_BASE = 'http://192.168.3.13:5000/api';
+const API_BASE = 'http://83.242.96.175:5002/api';
 
 const DEFAULT_SITES = [
   'stackoverflow.com',
