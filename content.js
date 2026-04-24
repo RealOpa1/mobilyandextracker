@@ -36,7 +36,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 
-const API_BASE = 'http://192.168.3.13:5000';  
+const API_BASE = 'http://83.242.96.175:5002';  
 
 function getPageText() {
     const article = document.querySelector('article');
