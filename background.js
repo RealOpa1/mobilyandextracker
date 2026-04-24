@@ -101,9 +101,6 @@ function isEducational(url) {
   }
 }
 async function sendVisit(data) {
-  const { token, trackingEnabled } = await chrome.storage.local.get(['token', 'trackingEnabled']);
-  if (!token || !trackingEnabled) return;
-
   try {
     await fetch(`${API_BASE}/visits`, {
       method: 'POST',
