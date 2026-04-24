@@ -1,68 +1,31 @@
 document.addEventListener('DOMContentLoaded', () => {
   const statusDiv = document.getElementById('status');
   const toggleBtn = document.getElementById('toggleBtn');
-  const optionsBtn = document.getElementById('optionsBtn');
-  const loginBtn = document.getElementById('loginBtn');
-  const currentSiteDiv = document.getElementById('currentSite');
 
-  chrome.storage.local.get(['token', 'trackingEnabled', 'userId', 'apiUrl'], (result) => {
-    updateUI(result);
-  });
-
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0] && tabs[0].url) {
-      try {
-        currentSiteDiv.textContent = `Текущий сайт: ${new URL(tabs[0].url).hostname}`;
-      } catch (e) {
-        currentSiteDiv.textContent = `Текущий сайт: неизвестный`;
-      }
-    }
+  chrome.storage.local.get(['trackingEnabled'], (result) => {
+    const enabled = result.trackingEnabled === true;
+    updateUI(enabled);
   });
 
   toggleBtn.addEventListener('click', () => {
     chrome.storage.local.get(['trackingEnabled'], (result) => {
       const newState = !result.trackingEnabled;
       chrome.storage.local.set({ trackingEnabled: newState }, () => {
-        updateUI({ trackingEnabled: newState });
+        updateUI(newState);
         chrome.runtime.sendMessage({ type: 'TRACKING_TOGGLE', enabled: newState });
       });
     });
   });
 
-  optionsBtn.addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
-  });
-
-  loginBtn.addEventListener('click', () => {
-    chrome.storage.local.get(['apiUrl'], (result) => {
-      const baseApiUrl = result.apiUrl || 'http://83.242.96.175:5002';
-      const loginUrl = `${baseApiUrl}/api/login`;
-      chrome.tabs.create({ url: loginUrl });
-    });
-  });
-
-  function updateUI(data) {
-    const { token, trackingEnabled, userId } = data;
-
-    if (!token || !userId) {
-      statusDiv.textContent = 'Не авторизован';
-      statusDiv.className = 'status unauthenticated';
-      toggleBtn.style.display = 'none';
-      loginBtn.style.display = 'block';
+  function updateUI(enabled) {
+    if (enabled) {
+      statusDiv.textContent = 'Отслеживание активно';
+      statusDiv.className = 'status on';
+      toggleBtn.textContent = 'Отключить отслеживание';
     } else {
-      loginBtn.style.display = 'none';
-      toggleBtn.style.display = 'block';
-      if (trackingEnabled) {
-        statusDiv.textContent = 'Отслеживание активно';
-        statusDiv.className = 'status active';
-        toggleBtn.textContent = 'Отключить отслеживание';
-        toggleBtn.className = 'btn-secondary';
-      } else {
-        statusDiv.textContent = 'Отслеживание отключено';
-        statusDiv.className = 'status inactive';
-        toggleBtn.textContent = 'Включить отслеживание';
-        toggleBtn.className = 'btn-primary';
-      }
+      statusDiv.textContent = 'Отслеживание отключено';
+      statusDiv.className = 'status off';
+      toggleBtn.textContent = 'Включить отслеживание';
     }
   }
 });
