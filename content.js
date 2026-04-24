@@ -98,7 +98,7 @@ async function sendPageForRecommendation() {
 function showRecommendations(recommendations) {
     const oldBox = document.getElementById('yt-so-recommend');
     if (oldBox) oldBox.remove();
-  
+
     const box = document.createElement('div');
     box.id = 'yt-so-recommend';
     box.style.cssText = `
@@ -115,7 +115,7 @@ function showRecommendations(recommendations) {
         border: 1px solid #e1e4e8;
         overflow: hidden;
     `;
-   
+
     const header = document.createElement('div');
     header.style.cssText = `
         background: #4a76a8;
@@ -130,10 +130,10 @@ function showRecommendations(recommendations) {
         <span>📚 Похожие вопросы на StackOverflow</span>
         <button id="yt-so-close" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">&times;</button>
     `;
-    
+
     const list = document.createElement('div');
     list.style.padding = '8px 12px';
-    
+
     recommendations.forEach(rec => {
         const item = document.createElement('div');
         item.style.margin = '8px 0';
@@ -147,19 +147,15 @@ function showRecommendations(recommendations) {
         `;
         list.appendChild(item);
     });
-    
+
     box.appendChild(header);
     box.appendChild(list);
     document.body.appendChild(box);
-    
-  
+
     document.getElementById('yt-so-close').onclick = () => box.remove();
-    
 
     setTimeout(() => {
         const stillThere = document.getElementById('yt-so-recommend');
         if (stillThere) stillThere.remove();
     }, 15000);
 }
-
-setTimeout(sendPageForRecommendation, 4000);
