@@ -11,7 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs[0] && tabs[0].url) {
-      currentSiteDiv.textContent = `Текущий сайт: ${new URL(tabs[0].url).hostname}`;
+      try {
+        currentSiteDiv.textContent = `Текущий сайт: ${new URL(tabs[0].url).hostname}`;
+      } catch (e) {
+        currentSiteDiv.textContent = `Текущий сайт: неизвестный`;
+      }
     }
   });
 
