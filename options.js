@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
   const apiUrlInput = document.getElementById('apiUrl');
   const usernameInput = document.getElementById('username');
@@ -13,27 +12,34 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   saveBtn.addEventListener('click', async () => {
-    const apiUrl = apiUrlInput.value.trim();
+    const baseUrl = apiUrlInput.value.trim();
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
 
-    if (!apiUrl || !username || !password) {
+    if (!baseUrl || !username || !password) {
       showMessage('Заполните все поля', 'error');
       return;
     }
 
+    const loginUrl = `${baseUrl}/api/login`;
+
     try {
-      const response = await fetch(`${apiUrl}/mobile/login`, {
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Ошибка ${response.status}`);
+      }
+
       const data = await response.json();
 
-      if (data.success) {
+      if (data.token) {
         await chrome.storage.local.set({
-          apiUrl,
+          apiUrl: baseUrl,   
           username,
           token: data.token,
           userId: data.user_id,
@@ -43,16 +49,20 @@ document.addEventListener('DOMContentLoaded', () => {
         showMessage('Успешный вход!', 'success');
         passwordInput.value = '';
       } else {
-        showMessage('Ошибка авторизации: ' + (data.error || 'Неверные данные'), 'error');
+        showMessage('Ошибка авторизации: неверный ответ сервера', 'error');
       }
     } catch (error) {
-      showMessage('Ошибка соединения с сервером', 'error');
+      console.error(error);
+      showMessage('Ошибка соединения с сервером: ' + error.message, 'error');
     }
   });
 
   logoutBtn.addEventListener('click', () => {
-    chrome.storage.local.remove(['token', 'userId', 'username', 'educationalSites'], () => {
+    chrome.storage.local.remove(['token', 'userId', 'username', 'educationalSites', 'apiUrl'], () => {
       showMessage('Вы вышли из системы', 'success');
+      apiUrlInput.value = '';
+      usernameInput.value = '';
+      passwordInput.value = '';
     });
   });
 
