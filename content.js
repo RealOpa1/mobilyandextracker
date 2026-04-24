@@ -1,13 +1,14 @@
+const API_BASE = 'http://83.242.96.175:5002';
+
 let startTime = Date.now();
 let isActive = true;
-let sessionId = null;
 
 chrome.runtime.sendMessage({ type: 'PAGE_LOAD', url: window.location.href });
 
 document.addEventListener('visibilitychange', () => {
   isActive = !document.hidden;
   if (isActive) {
-    startTime = Date.now(); 
+    startTime = Date.now();
   } else {
     const duration = Math.floor((Date.now() - startTime) / 1000);
     chrome.runtime.sendMessage({
@@ -35,127 +36,103 @@ window.addEventListener('beforeunload', () => {
   });
 });
 
-
-const API_BASE = 'http://83.242.96.175:5002';  
-
-function getPageText() {
-    const article = document.querySelector('article');
-    if (article) return article.innerText.substring(0, 5000);
-    
-    const elements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
-    let text = '';
-    elements.forEach(el => text += el.innerText + ' ');
-    return text.substring(0, 5000);
+async function getAnonId() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['anonId'], (result) => {
+      resolve(result.anonId);
+    });
+  });
 }
 
-async function getToken() {
-    return new Promise((resolve) => {
-        chrome.storage.local.get(['token'], (result) => {
-            resolve(result.token);
-        });
-    });
+function getPageText() {
+  const article = document.querySelector('article');
+  if (article) return article.innerText.substring(0, 5000);
+  const elements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
+  let text = '';
+  elements.forEach(el => text += el.innerText + ' ');
+  return text.substring(0, 5000);
 }
 
 async function sendPageForRecommendation() {
-    const text = getPageText();
-    if (!text || text.length < 100) {
-        console.log("Текст слишком короткий, рекомендации не запрашиваем");
-        return;
+  const text = getPageText();
+  if (!text || text.length < 100) return;
+  const anonId = await getAnonId();
+  if (!anonId) return;
+  const url = window.location.href;
+  const title = document.title;
+  try {
+    const response = await fetch(`${API_BASE}/api/recommend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, title, text, anon_id: anonId })
+    });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.recommendations && data.recommendations.length > 0) {
+        showRecommendations(data.recommendations);
+      }
     }
-    
-    const token = await getToken();
-    if (!token) {
-        console.log("Пользователь не авторизован, рекомендации не доступны");
-        return;
-    }
-    
-    const url = window.location.href;
-    const title = document.title;
-    
-    try {
-        const response = await fetch(`${API_BASE}/api/recommend`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ url, title, text })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.recommendations && data.recommendations.length > 0) {
-                showRecommendations(data.recommendations);
-            }
-        } else {
-            console.error("Ошибка сервера:", response.status);
-        }
-    } catch (error) {
-        console.error('Ошибка отправки на рекомендации:', error);
-    }
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 function showRecommendations(recommendations) {
-    const oldBox = document.getElementById('yt-so-recommend');
-    if (oldBox) oldBox.remove();
-
-    const box = document.createElement('div');
-    box.id = 'yt-so-recommend';
-    box.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 340px;
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-        z-index: 10001;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 14px;
-        border: 1px solid #e1e4e8;
-        overflow: hidden;
+  const oldBox = document.getElementById('yt-so-recommend');
+  if (oldBox) oldBox.remove();
+  const box = document.createElement('div');
+  box.id = 'yt-so-recommend';
+  box.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 340px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    z-index: 10001;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    border: 1px solid #e1e4e8;
+    overflow: hidden;
+  `;
+  const header = document.createElement('div');
+  header.style.cssText = `
+    background: #4a76a8;
+    color: white;
+    padding: 10px 12px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  `;
+  header.innerHTML = `
+    <span>📚 Похожие вопросы на StackOverflow</span>
+    <button id="yt-so-close" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">&times;</button>
+  `;
+  const list = document.createElement('div');
+  list.style.padding = '8px 12px';
+  recommendations.forEach(rec => {
+    const item = document.createElement('div');
+    item.style.margin = '8px 0';
+    item.innerHTML = `
+      <a href="${rec.link}" target="_blank" style="color: #4a76a8; text-decoration: none; font-weight: 500;">
+        ${rec.title}
+      </a>
+      <div style="font-size: 12px; color: #586069; margin-top: 2px;">
+        ⭐ ${rec.score} | 💬 ${rec.answer_count} ответов
+      </div>
     `;
-
-    const header = document.createElement('div');
-    header.style.cssText = `
-        background: #4a76a8;
-        color: white;
-        padding: 10px 12px;
-        font-weight: bold;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    `;
-    header.innerHTML = `
-        <span>📚 Похожие вопросы на StackOverflow</span>
-        <button id="yt-so-close" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">&times;</button>
-    `;
-
-    const list = document.createElement('div');
-    list.style.padding = '8px 12px';
-
-    recommendations.forEach(rec => {
-        const item = document.createElement('div');
-        item.style.margin = '8px 0';
-        item.innerHTML = `
-            <a href="${rec.link}" target="_blank" style="color: #4a76a8; text-decoration: none; font-weight: 500;">
-                ${rec.title}
-            </a>
-            <div style="font-size: 12px; color: #586069; margin-top: 2px;">
-                ⭐ ${rec.score} | 💬 ${rec.answer_count} ответов
-            </div>
-        `;
-        list.appendChild(item);
-    });
-
-    box.appendChild(header);
-    box.appendChild(list);
-    document.body.appendChild(box);
-
-    document.getElementById('yt-so-close').onclick = () => box.remove();
-
-    setTimeout(() => {
-        const stillThere = document.getElementById('yt-so-recommend');
-        if (stillThere) stillThere.remove();
-    }, 15000);
+    list.appendChild(item);
+  });
+  box.appendChild(header);
+  box.appendChild(list);
+  document.body.appendChild(box);
+  document.getElementById('yt-so-close').onclick = () => box.remove();
+  setTimeout(() => {
+    const stillThere = document.getElementById('yt-so-recommend');
+    if (stillThere) stillThere.remove();
+  }, 15000);
 }
+
+setTimeout(sendPageForRecommendation, 4000);
