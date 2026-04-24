@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YandexTracker Mobile",
-  "version": "1.0.0",
-  "description": "Отслеживание времени на образовательных сайтах с согласия пользователя",
+  "version": "1.1.0",
+  "description": "Трекер образовательных сайтов с анонимным ID",
   "permissions": [
     "tabs",
     "storage",
@@ -19,10 +19,6 @@
   "action": {
     "default_popup": "popup.html",
     "default_title": "YandexTracker"
-  },
-  "options_ui": {
-    "page": "options.html",
-    "open_in_tab": false
   },
   "content_scripts": [
     {
