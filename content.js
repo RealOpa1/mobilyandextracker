@@ -1,3 +1,4 @@
+
 const API_BASE = 'http://83.242.96.175:5002';
 
 let startTime = Date.now();
@@ -58,33 +59,6 @@ async function sendPageForRecommendation() {
   if (!text || text.length < 100) return;
   const anonId = await getAnonId();
   if (!anonId) return;
-
-  // ========== ТЕСТОВЫЕ ДАННЫЕ (МОК) ==========
-  const testRecommendations = [
-    {
-      title: "Как отсортировать список в Python?",
-      link: "https://stackoverflow.com/questions/12345/отсортировать-список-python",
-      score: 245,
-      answer_count: 12
-    },
-    {
-      title: "Что такое list comprehension?",
-      link: "https://stackoverflow.com/questions/67890/list-comprehension",
-      score: 189,
-      answer_count: 8
-    },
-    {
-      title: "В чем разница между sort() и sorted()?",
-      link: "https://stackoverflow.com/questions/11121/sort-vs-sorted",
-      score: 342,
-      answer_count: 15
-    }
-  ];
-  showRecommendations(testRecommendations);
-  // ==========================================
-
-  // Оригинальный код вызова API закомментирован
-  /*
   const url = window.location.href;
   const title = document.title;
   try {
@@ -98,17 +72,17 @@ async function sendPageForRecommendation() {
       if (data.recommendations && data.recommendations.length > 0) {
         showRecommendations(data.recommendations);
       }
+    } else {
+      console.error('Ошибка сервера рекомендаций:', response.status);
     }
   } catch (error) {
-    console.error(error);
+    console.error('Ошибка отправки на рекомендации:', error);
   }
-  */
 }
 
 function showRecommendations(recommendations) {
   const oldBox = document.getElementById('yt-so-recommend');
   if (oldBox) oldBox.remove();
-
   const box = document.createElement('div');
   box.id = 'yt-so-recommend';
   box.style.cssText = `
@@ -125,7 +99,6 @@ function showRecommendations(recommendations) {
     border: 1px solid #e1e4e8;
     overflow: hidden;
   `;
-
   const header = document.createElement('div');
   header.style.cssText = `
     background: #4a76a8;
@@ -140,10 +113,8 @@ function showRecommendations(recommendations) {
     <span>📚 Похожие вопросы на StackOverflow</span>
     <button id="yt-so-close" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">&times;</button>
   `;
-
   const list = document.createElement('div');
   list.style.padding = '8px 12px';
-
   recommendations.forEach(rec => {
     const item = document.createElement('div');
     item.style.margin = '8px 0';
@@ -157,11 +128,9 @@ function showRecommendations(recommendations) {
     `;
     list.appendChild(item);
   });
-
   box.appendChild(header);
   box.appendChild(list);
   document.body.appendChild(box);
-
   document.getElementById('yt-so-close').onclick = () => box.remove();
   setTimeout(() => {
     const stillThere = document.getElementById('yt-so-recommend');
